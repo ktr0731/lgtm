@@ -89,14 +89,10 @@ func drawOver(img draw.Image, lgtm image.Image) {
 
 func adjustedLGTM(r image.Rectangle) image.Image {
 	b := lgtm.Bounds()
-	if b.Dx() <= r.Dx() && b.Dy() <= r.Dy() {
-		return lgtm
-	}
-
 	threshold := 0.3
 
 	var x, y uint
-	if b.Dx() > r.Dx() {
+	if b.Dx() != r.Dx() {
 		ratio := float64(r.Dx()) / float64(b.Dx())
 		fx := math.Floor(float64(b.Dx()) * ratio)
 		fy := math.Floor(float64(b.Dy()) * ratio)
