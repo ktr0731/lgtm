@@ -1,11 +1,13 @@
 package lgtm
 
 import (
+	"bytes"
 	"image"
 	"image/draw"
 	"image/gif"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"math"
 	"sync"
 
@@ -47,44 +49,61 @@ func New(r io.Reader, w io.Writer) error {
 		return errors.Wrap(err, "failed to init base image")
 	}
 
-	g, err := gif.DecodeAll(r)
+	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return errors.Wrap(err, "failed to decode source GIF")
+		return errors.Wrap(err, "failed to read from input")
 	}
 
-	// outGIF := &gif.GIF{
-	// 	Image: make([]*image.Paletted, 0, len(inGIF.Image)),
-	// 	Delay: inGIF.Delay,
-	// }
-	lgtm := adjustedLGTM(g.Image[0])
-	bounds := g.Image[0].Bounds()
+	if g, err := gif.DecodeAll(bytes.NewBuffer(b)); err == nil {
+		return fromGIF(w, g)
+	} else if p, err := png.Decode(bytes.NewBuffer(b)); err == nil {
+		return fromImage(w, p)
+	} else {
+		return errors.Wrap(err, "unsupported file type")
+	}
+}
+
+func fromGIF(w io.Writer, g *gif.GIF) error {
+	lgtm := adjustedLGTM(g.Image[0].Bounds())
 	for i := range g.Image {
-		p := lgtm.Bounds().Size()
-		p.X = -((bounds.Dx() - p.X) / 2)
-		p.Y = -((bounds.Dy() - p.Y) / 2)
-		draw.Draw(g.Image[i], bounds, lgtm, p, draw.Over)
+		drawOver(g.Image[i], lgtm)
 	}
-
 	return gif.EncodeAll(w, g)
 }
 
-func adjustedLGTM(p *image.Paletted) image.Image {
+// only png
+func fromImage(w io.Writer, img image.Image) error {
+	lgtm := adjustedLGTM(img.Bounds())
+	p := image.NewRGBA(img.Bounds())
+	draw.Draw(p, img.Bounds(), img, image.ZP, draw.Src)
+	drawOver(p, lgtm)
+	return png.Encode(w, p)
+}
+
+func drawOver(img draw.Image, lgtm image.Image) {
+	p := lgtm.Bounds().Size()
+	p.X = -((img.Bounds().Dx() - p.X) / 2)
+	p.Y = -((img.Bounds().Dy() - p.Y) / 2)
+	draw.Draw(img, img.Bounds(), lgtm, p, draw.Over)
+}
+
+func adjustedLGTM(r image.Rectangle) image.Image {
 	b := lgtm.Bounds()
-	if b.Dx() <= p.Bounds().Dx() && b.Dy() <= p.Bounds().Dy() {
+	if b.Dx() <= r.Dx() && b.Dy() <= r.Dy() {
 		return lgtm
 	}
 
 	threshold := 0.3
 
 	var x, y uint
-	if b.Dx() > p.Bounds().Dx() {
-		ratio := float64(p.Bounds().Dx()) / float64(b.Dx())
+	if b.Dx() > r.Dx() {
+		ratio := float64(r.Dx()) / float64(b.Dx())
 		fx := math.Floor(float64(b.Dx()) * ratio)
 		fy := math.Floor(float64(b.Dy()) * ratio)
 		x = uint(fx - fx*threshold)
 		y = uint(fy - fy*threshold)
-	} else if b.Dy() > p.Bounds().Dy() {
-		ratio := float64(p.Bounds().Dy()) / float64(b.Dy())
+	} else if b.Dy() > r.Dy() {
+		ratio := float64(r.Dy()) / float64(b.Dy())
 		fx := math.Floor(float64(b.Dx()) * ratio)
 		fy := math.Floor(float64(b.Dy()) * ratio)
 		x = uint(fx - fx*threshold)
