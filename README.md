@@ -1,6 +1,14 @@
 LGTM
 ===
 
+![](./lgtm.png)  
+
+## Install
+
+``` bash
+$ go get github.com/ktr0731/lgtm/cmd/lgtm
+```
+
 ## Usage
 
 ``` bash
