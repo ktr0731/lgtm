@@ -12,10 +12,13 @@ import (
 
 var (
 	w = flag.Bool("w", false, "write to input file")
+	t = flag.Float64("threshold", 0.3, "margin threshold")
 )
 
 func main() {
 	flag.Parse()
+
+	lgtm.Threshold = *t
 
 	switch {
 	case *w && len(flag.Args()) != 1:
