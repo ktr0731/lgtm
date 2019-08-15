@@ -1,6 +1,8 @@
 LGTM
 ===
 
+[![GoDoc](https://godoc.org/github.com/ktr0731/lgtm?status.svg)](https://godoc.org/github.com/ktr0731/lgtm)
+
 ![](./lgtm.png)  
 
 ## Install
