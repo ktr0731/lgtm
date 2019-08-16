@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/ktr0731/lgtm"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -21,42 +23,46 @@ func main() {
 	lgtm.Threshold = *t
 
 	switch {
-	case *w && len(flag.Args()) != 1:
+	case *w && len(flag.Args()) > 0:
+		var eg errgroup.Group
+		for _, a := range flag.Args() {
+			a := a
+			eg.Go(func() error {
+				return overlayLGTM(a, a)
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			log.Fatal(err)
+		}
+	case *w && len(flag.Args()) == 0:
 		fmt.Println("usage: lgtm -w <input.gif>")
 		os.Exit(1)
 	case !*w && len(flag.Args()) != 2:
 		fmt.Println("usage: lgtm <input.gif> <output.gif>")
 		os.Exit(1)
+	default:
+		if err := overlayLGTM(flag.Arg(1), flag.Arg(0)); err != nil {
+			log.Fatal(err)
+		}
 	}
+}
 
-	var r io.Reader
+func overlayLGTM(outFile, inFile string) error {
 	var err error
-	f, err := os.Open(flag.Arg(0))
+	f, err := os.Open(inFile)
 	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	r = f
-
-	var outFileName string
-	if *w {
-		buf := new(bytes.Buffer)
-		io.Copy(buf, f)
-		r = buf
-		f.Close()
-
-		outFileName = flag.Arg(0)
-	} else {
-		outFileName = flag.Arg(1)
+		return err
 	}
 
-	w, err := os.Create(outFileName)
+	r := new(bytes.Buffer)
+	io.Copy(r, f)
+	f.Close()
+
+	w, err := os.Create(outFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer w.Close()
 
-	if err := lgtm.New(r, w); err != nil {
-		panic(err)
-	}
+	return lgtm.New(r, w)
 }
